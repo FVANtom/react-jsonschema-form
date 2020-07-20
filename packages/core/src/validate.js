@@ -7,6 +7,9 @@ let formerCustomFormats = null;
 let formerMetaSchema = null;
 
 import { isObject, mergeObjects } from "./utils";
+import _Object$keys from "@babel/runtime-corejs2/core-js/object/keys";
+import _Array$isArray from "@babel/runtime-corejs2/core-js/array/is-array";
+import _typeof from "@babel/runtime-corejs2/helpers/esm/typeof";
 
 function createAjvInstance() {
   const ajv = new Ajv({
@@ -204,7 +207,7 @@ export default function validateFormData(
 
   let validationError = null;
   try {
-    ajv.validate(schema, formData);
+    ajv.validate(schema, trimEmptyValues(formData));
   } catch (err) {
     validationError = err;
   }
@@ -268,10 +271,70 @@ export default function validateFormData(
  * false otherwise. If the schema is invalid, then this function will return
  * false.
  */
+
 export function isValid(schema, data) {
   try {
-    return ajv.validate(schema, data);
+    return ajv.validate(schema, trimEmptyValues(data));
   } catch (e) {
     return false;
   }
+}
+
+// These methods have been adapted from this pull request:
+// https://github.com/rjsf-team/react-jsonschema-form/pull/1228
+// This is not a perfect solution but provides ok-ish workaround
+// until issue:
+// https://github.com/rjsf-team/react-jsonschema-form/issues/675
+// has been resolved
+
+function trimObject(object) {
+  var level =
+    arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+
+  if (object === null) {
+    return null;
+  }
+
+  if (!_Object$keys(object).length) {
+    return undefined;
+  }
+
+  return _Object$keys(object).reduce(function(acc, key) {
+    var trimmed = trimEmptyValues(object[key], level + 1);
+
+    if (trimmed || trimmed === false) {
+      if (!acc) {
+        acc = {};
+      }
+
+      acc[key] = trimmed;
+    }
+
+    return acc;
+  }, undefined);
+}
+
+function trimArray(array) {
+  var level =
+    arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+  return array.reduce(function(acc, value) {
+    var trimmed = trimEmptyValues(value, level + 1);
+
+    if (trimmed || trimmed === false || trimmed === null) {
+      acc.push(trimmed);
+    }
+
+    return acc;
+  }, []);
+}
+
+export function trimEmptyValues(value) {
+  var level =
+    arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+  var trimmedValue = _Array$isArray(value)
+    ? trimArray(value, level)
+    : _typeof(value) === "object"
+    ? trimObject(value, level)
+    : value;
+  return trimmedValue === undefined && level === 0 ? {} : trimmedValue;
 }
